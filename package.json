@@ -16,10 +16,24 @@
     "typescript": "^4.3.5"
   },
   "dependencies": {
+    "@types/cookie-parser": "^1.4.2",
+    "axios": "^0.21.1",
+    "class-validator": "^0.13.1",
+    "cookie-parser": "^1.4.5",
+    "google-auth-library": "^7.3.0",
+    "graphql": "^15.5.1",
+    "graphql-middleware": "4.0.1",
+    "graphql-shield": "^7.5.0",
     "graphql-yoga": "^1.18.3",
     "jsonwebtoken": "^8.5.1",
     "passport": "^0.4.1",
+    "passport-google-authcode": "^0.1.5",
+    "passport-google-oauth": "^2.0.0",
+    "passport-google-strategy": "^1.0.3",
     "passport-google-token": "^0.1.2",
-    "prisma": "^2.26.0"
+    "prisma": "^2.26.0",
+    "rambda": "^6.7.0",
+    "reflect-metadata": "^0.1.13",
+    "type-graphql": "^1.1.1"
   }
 }

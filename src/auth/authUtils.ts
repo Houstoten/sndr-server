@@ -1,26 +1,92 @@
+import GoogleAuthCodeStrategy from "./passport/authcode_strategy";
+
+const { OAuth2Client } = require('google-auth-library');
+
 const passport = require('passport');
 
-const { Strategy: GoogleTokenStrategy } = require('passport-google-token');
+const axios = require('axios');
+
+export const validateToken = async (token: any, clientId: string) => {
+    const tokenPayload = await loadTokenPayload(token);
+
+    const { aud, exp } = tokenPayload
+    if (aud === clientId && exp < Date.now()) {
+        return tokenPayload
+    }
+
+    return null
+}
+
+export const getUserProfile = async (accessToken: string) => {
+    const url = `https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=${accessToken}`
+
+    try {
+        const { data } = await axios.get(url);
+        return data
+    } catch (error: any) {
+        return error;
+    }
+}
+
+const loadTokenPayload = async (token: any) => {
+    const [tokenName, tokenValue] = Object.entries(token)[0]
+    const url = `https://oauth2.googleapis.com/tokeninfo?${tokenName}=${tokenValue}`
+
+    try {
+        const { data } = await axios.get(url);
+        return data
+    } catch (error: any) {
+        return error;
+    }
+
+}
 
 // GOOGLE STRATEGY
 const GoogleTokenStrategyCallback = (
+    resultsJson: any,
     accessToken: any,
     refreshToken: any,
     profile: any,
-    done: (arg0: null, arg1: { accessToken: any; refreshToken: any; profile: any; }) => any
-) => done(null, {
-    accessToken,
-    refreshToken,
-    profile,
-});
+    done: (arg0: null, arg1: { accessToken: any; refreshToken: any; profile: any; idToken: any }) => any
+) => {
 
-passport.use(new GoogleTokenStrategy({
+    const { id_token: idToken } = resultsJson
+
+    return done(null, {
+        accessToken,
+        refreshToken,
+        idToken,
+        profile,
+    })
+};
+
+const GoogleStrategy = new GoogleAuthCodeStrategy({
     clientID: '629755736096-4nfiv64cnmk3jiuf85uvbj6fbhc79r2h.apps.googleusercontent.com',
     clientSecret: 'hiGdSygKCexMDFEKnkJJPfWH',
-}, GoogleTokenStrategyCallback));
+    callbackURL: 'postmessage'
+}, GoogleTokenStrategyCallback)
+
+passport.use(GoogleStrategy);
+
+export const refreshTokens = async (tokens: any) => {
+    const oauth2Client = new OAuth2Client(
+        '629755736096-4nfiv64cnmk3jiuf85uvbj6fbhc79r2h.apps.googleusercontent.com',
+        'hiGdSygKCexMDFEKnkJJPfWH',
+        'postmessage'
+    );
+
+    oauth2Client.setCredentials({
+        access_token: tokens.accessToken,
+        refresh_token: tokens.refreshToken,
+        id_token: tokens.idToken
+    });
+
+    return await oauth2Client.refreshAccessToken()
+};
+
 
 export const authenticateGoogle = (req: any, res: any) => new Promise((resolve, reject) => {
-    passport.authenticate('google-token', { session: false }, (err: any, data: any, info: any) => {
+    passport.authenticate('google-authcode', { session: false, accessType: 'offline', prompt: 'consent' }, (err: any, data: any, info: any) => {
         if (err) reject(err);
 
         resolve({ data, info });
