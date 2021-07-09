@@ -9,7 +9,7 @@ import { rule, shield } from "graphql-shield";
 
 async function getClaims(req: any) {
 
-    const { cookies: { accessToken, idToken, refreshToken } } = req
+    const { cookies: { accessToken, idToken } } = req
 
     const validAccessToken = await validateToken({ accessToken }, "629755736096-4nfiv64cnmk3jiuf85uvbj6fbhc79r2h.apps.googleusercontent.com")
     const validIdToken = await validateToken({ idToken }, "629755736096-4nfiv64cnmk3jiuf85uvbj6fbhc79r2h.apps.googleusercontent.com")
@@ -24,9 +24,13 @@ async function getClaims(req: any) {
 }
 
 const isAuthenticated = rule()(async (parent, args, ctx, info) => {
-    console.log(ctx.request.claims);
+    if (ctx.request.claims === null) {
+        ctx.response.statusCode = 401
 
-    return ctx.request.claims !== null;
+        return false;
+    }
+
+    return true;
 });
 
 const permissions = shield({
@@ -36,9 +40,9 @@ const permissions = shield({
     }
 });
 
-const setCookies = (_response: any) => (tokens: any) => {            
-    const { credentials: {access_token, refresh_token, id_token} } = tokens
-    
+const setCookies = (_response: any) => (tokens: any) => {
+    const { credentials: { access_token, refresh_token, id_token } } = tokens
+
     _response.cookie('accessToken', access_token, { httpOnly: true });
     _response.cookie('refreshToken', refresh_token, { httpOnly: true });
     _response.cookie('idToken', id_token, { httpOnly: true });
@@ -108,8 +112,21 @@ class AuthResolver {
     ): Promise<AuthResponse | Error> {
         const { request: { cookies: { accessToken, idToken, refreshToken } }, response } = ctx
 
-        await refreshTokens({ accessToken, idToken, refreshToken }).then(setCookies(response)).catch(err => {throw err})
-        
+        await refreshTokens({ accessToken, idToken, refreshToken }).then(setCookies(response)).catch(err => { throw err })
+
+        return new AuthResponse(true)
+    }
+
+    @Mutation(returns => AuthResponse)
+    async signOut(
+        @Ctx() ctx: Context
+    ): Promise<AuthResponse | Error> {
+        const { response } = ctx
+
+        response.clearCookie('accessToken')
+        response.clearCookie('refreshToken')
+        response.clearCookie('idToken')
+
         return new AuthResponse(true)
     }
 
@@ -138,9 +155,11 @@ class AuthResolver {
                 const { accessToken, refreshToken, idToken } = data;
 
                 setCookies(response)({
-                    access_token: accessToken,
-                    refresh_token: refreshToken,
-                    id_token: idToken
+                    credentials: {
+                        access_token: accessToken,
+                        refresh_token: refreshToken,
+                        id_token: idToken
+                    }
                 })
 
                 return new AuthResponse(true)
