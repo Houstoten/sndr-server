@@ -61,8 +61,8 @@ const GoogleTokenStrategyCallback = (
 };
 
 const GoogleStrategy = new GoogleAuthCodeStrategy({
-    clientID: '629755736096-4nfiv64cnmk3jiuf85uvbj6fbhc79r2h.apps.googleusercontent.com',
-    clientSecret: 'hiGdSygKCexMDFEKnkJJPfWH',
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     callbackURL: 'postmessage'
 }, GoogleTokenStrategyCallback)
 
@@ -70,8 +70,8 @@ passport.use(GoogleStrategy);
 
 export const refreshTokens = async (tokens: any) => {
     const oauth2Client = new OAuth2Client(
-        '629755736096-4nfiv64cnmk3jiuf85uvbj6fbhc79r2h.apps.googleusercontent.com',
-        'hiGdSygKCexMDFEKnkJJPfWH',
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
         'postmessage'
     );
 
