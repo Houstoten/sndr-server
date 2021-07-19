@@ -11,7 +11,7 @@ export class UserPosition {
     updatedat!: Date
 
     @Field((type) => User)
-    user!: User
+    user?: User
 
     @Field((type) => Float)
     latitude!: Number

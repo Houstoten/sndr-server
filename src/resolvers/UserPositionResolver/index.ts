@@ -1,6 +1,7 @@
-import { Resolver, Query, Ctx, InputType, Field, Float, Arg, Mutation, PubSub, PubSubEngine } from 'type-graphql';
+import { Resolver, Query, Ctx, InputType, Field, Float, Arg, Mutation, PubSub, PubSubEngine, UseMiddleware } from 'type-graphql';
 
-import { Context } from "vm";
+import { CustomContext } from '../../context/types';
+import { isAuthenticated } from '../../middlewares/isAuthenticated';
 
 import { UserPosition } from './UserPosition'
 
@@ -8,18 +9,20 @@ import { UserPosition } from './UserPosition'
 class PositionArgs {
 
     @Field((type) => Float)
-    latitude!: Number
+    latitude!: number
 
     @Field((type) => Float)
-    longitude!: Number
+    longitude!: number
 }
 
 @Resolver(UserPosition)
 export class UserPositionResolver {
+    
+    @UseMiddleware(isAuthenticated)
     @Mutation(returns => UserPosition)
     async setCurrentPosition(
         @Arg("input") position: PositionArgs,
-        @Ctx() ctx: Context, 
+        @Ctx() ctx: CustomContext, 
         @PubSub() pubSub: PubSubEngine
     ): Promise<UserPosition> {
         const { req: { claims: { id } }, prisma } = ctx

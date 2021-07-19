@@ -1,3 +1,4 @@
+import { Claims } from "../../context/types";
 import GoogleAuthCodeStrategy from "./passport/authcode_strategy";
 
 const { OAuth2Client } = require('google-auth-library');
@@ -17,7 +18,7 @@ export const validateToken = async (token: any, clientId: string) => {
     return null
 }
 
-export const getUserProfile = async (accessToken: string) => {
+export const getUserProfile = async (accessToken: string): Promise<Claims> => {
     const url = `https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=${accessToken}`
 
     try {

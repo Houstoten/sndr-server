@@ -1,10 +1,13 @@
 import { validateToken, getUserProfile } from './auth'
 import * as R from 'rambda'
+import { Request, Response } from 'express';
+import { Tokens } from './auth/types';
+import { Claims } from '../context/types';
 
-export const parseCookies = (request: any) => {
+export const parseCookies = (request: Request): Request => {
     const list = {}, rc = request.headers.cookie;
 
-    rc && rc.split(';').forEach(function( cookie: any ) {
+    rc && rc.split(';').forEach(function (cookie: any) {
         const parts = cookie.split('=');
         //@ts-ignore
         list[parts.shift().trim()] = decodeURI(parts.join('='));
@@ -13,9 +16,9 @@ export const parseCookies = (request: any) => {
     return R.set(R.lensProp('cookies'), list, request);
 }
 
-export async function getClaims(req: any) {
+export const getClaims = async (req: Request): Promise<Claims | null> => {
 
-    if(!req) {
+    if (!req) {
         return null;
     }
     const { cookies: { accessToken, idToken } } = req
@@ -32,7 +35,7 @@ export async function getClaims(req: any) {
     return null;
 }
 
-export const setCookies = (_response: any) => (tokens: any) => {
+export const setCookies = (_response: Response) => (tokens: { credentials: Tokens }) => {
     const { credentials: { access_token, refresh_token, id_token } } = tokens
 
     _response.cookie('accessToken', access_token, { httpOnly: true });

@@ -1,5 +1,6 @@
-import { Arg, Field, Mutation, Resolver, ObjectType, Query, InputType, Ctx, PubSub, PubSubEngine } from 'type-graphql';
-import { Context } from "vm";
+import { Arg, Field, Mutation, Resolver, ObjectType, Query, InputType, Ctx, PubSub, PubSubEngine, UseMiddleware } from 'type-graphql';
+import { CustomContext } from '../../context/types';
+import { isAuthenticated } from '../../middlewares/isAuthenticated';
 
 import { setCookies } from '../../utils'
 import { authenticateGoogle, refreshTokens } from '../../utils/auth'
@@ -26,14 +27,14 @@ class AuthArgs {
 export class AuthResolver {
 
     @Query(returns => String)
-    hello(@Ctx() ctx: Context): string {
+    hello(@Ctx() ctx: CustomContext): string {
 
         return 'world'
     }
 
     @Mutation(returns => AuthResponse)
     async refreshTokens(
-        @Ctx() ctx: Context
+        @Ctx() ctx: CustomContext
     ): Promise<AuthResponse | Error> {
         const { req: { cookies: { accessToken, idToken, refreshToken } }, res } = ctx
 
@@ -42,15 +43,16 @@ export class AuthResolver {
         return new AuthResponse(true)
     }
 
+    @UseMiddleware(isAuthenticated)
     @Mutation(returns => AuthResponse)
     async signOut(
-        @Ctx() ctx: Context,
+        @Ctx() ctx: any,
         @PubSub() pubSub: PubSubEngine
     ): Promise<AuthResponse | Error> {
         const { req: { claims: { id } }, res } = ctx
 
         await pubSub.publish("USERONLINE", { id, online: false });
-        
+
         res.clearCookie('accessToken')
         res.clearCookie('refreshToken')
         res.clearCookie('idToken')
@@ -61,7 +63,7 @@ export class AuthResolver {
     @Mutation(returns => AuthResponse)
     async authGoogle(
         @Arg("input") authArgs: AuthArgs,
-        @Ctx() ctx: Context
+        @Ctx() ctx: CustomContext
     ): Promise<AuthResponse | Error> {
 
         const { req, res } = ctx

@@ -1,11 +1,10 @@
-import { Resolver, Query, Ctx, Field, ObjectType, Float, Subscription, Publisher, PubSub, Root, PubSubEngine } from 'type-graphql';
+import { Resolver, Query, Ctx, Field, ObjectType, Float, Subscription, Root, PubSubEngine, UseMiddleware, PubSub } from 'type-graphql';
 
 import * as R from 'rambda'
 
-import { Context } from "vm";
-import { UserPosition } from '../UserPositionResolver/UserPosition';
-
 import { User } from './User'
+import { CustomContext } from '../../context/types';
+import { isAuthenticated } from '../../middlewares/isAuthenticated';
 
 @ObjectType()
 class UserResponse extends User {
@@ -45,9 +44,16 @@ class UserOnlineResponse extends UserResponse {
 
 @Resolver(User)
 export class UserResolver {
+    @UseMiddleware(isAuthenticated)
     @Query(returns => User)
-    getUserData(@Ctx() ctx: Context) {
+    async getUserData(
+        @Ctx() ctx: CustomContext,
+        @PubSub() pubSub: PubSubEngine
+    ) {
+
         const { req: { claims: { id, name, email, picture: image } }, prisma } = ctx
+
+        await pubSub.publish("USERONLINE", { id, online: true });
 
         return prisma.user.upsert({
             where: {
@@ -62,32 +68,34 @@ export class UserResolver {
         })
     }
 
+    @UseMiddleware(isAuthenticated)
     @Query(returns => [UserResponse])
-    async getNearestUsers(@Ctx() ctx: Context): Promise<[UserResponse]> {
+    async getNearestUsers(@Ctx() ctx: CustomContext): Promise<[UserResponse]> {
         const { req: { claims: { id } }, prisma } = ctx
 
-        const { latitude, longitude }: UserPosition = await prisma.userposition.findUnique({
+        const { latitude, longitude } = await prisma.userposition.findUnique({
             where: {
                 userid: id
             }
-        })
+        }) ?? {}
 
         return prisma.$queryRaw`SELECT u.name, u.email, u.image, u.id, SQRT(POWER(ABS(up.latitude - ${latitude}), 2) + POWER(ABS(up.longitude - ${longitude}), 2)) as distance FROM "userposition" up join "user" u on up.userid=u.id and up.userid!=${id} and u.online=true order by distance;`
     }
 
     @Subscription(() => UserUpdateResponse, {
         topics: "LOCATIONUPDATE",
-        // filter: ({ payload, args }: any) => {
+        filter: ({ payload, args, context: {connection} }: any) => {
 
-        //     const { observableUsers } = args
-        //     const { userId } = payload
+            const { id: userid } = connection.context.claims
 
-        //     return R.find(R.equals(userId), observableUsers)
-        // },
+            const { id } = payload
+
+            return userid !== id
+        },
     }
     )
     async updateNearestData(
-        @Ctx() ctx: Context,
+        @Ctx() ctx: CustomContext,
         @Root() newUserLocation: any,
     ): Promise<UserUpdateResponse> {
         const id = R.pathOr(null, ['connection', 'context', 'claims', 'id'], ctx)
@@ -108,20 +116,21 @@ export class UserResolver {
 
     @Subscription(() => UserOnlineResponse, {
         topics: "USERONLINE",
-        // filter: ({ payload, args }: any) => {
+        filter: ({ payload, args, context: {connection} }: any) => {
 
-        //     const { observableUsers } = args
-        //     const { userId } = payload
+            const { id: userid } = connection.context.claims
 
-        //     return R.find(R.equals(userId), observableUsers)
-        // },
+            const { id } = payload
+
+            return userid !== id
+        },
     }
     )
     async updateUserOnline(
         @Root() userOnlineRequest: UserOnlineRequest,
-        @Ctx() ctx: Context,
+        @Ctx() ctx: CustomContext,
     ): Promise<UserOnlineResponse> {
-        
+
         const id = R.pathOr(null, ['connection', 'context', 'claims', 'id'], ctx)
 
         const prisma: any = R.path(['connection', 'context', 'prisma'], ctx)
@@ -136,7 +145,7 @@ export class UserResolver {
         })
 
         if (!userOnlineRequest.online) {
-            return {...user, online: false}
+            return { ...user, online: false }
         }
 
         const { latitude, longitude }: any = await prisma.userposition.findUnique({
@@ -144,7 +153,7 @@ export class UserResolver {
                 userid: id
             }
         })
-        
+
         const { latitude: _latitude, longitude: _longitude }: any = await prisma.userposition.findUnique({
             where: {
                 userid: userOnlineRequest.id
@@ -152,7 +161,7 @@ export class UserResolver {
         })
 
         const distance = Math.sqrt(Math.pow(Math.abs(latitude - _latitude), 2) + Math.pow(Math.abs(longitude - _longitude), 2))
-                
+
         return { ...user, online: true, distance }
 
     }

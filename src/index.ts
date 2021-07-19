@@ -4,16 +4,16 @@ import cookieParser from 'cookie-parser'
 require('dotenv').config()
 
 import { resolvers } from './resolvers'
-import { middlewares } from './middlewares'
 import { getClaims, parseCookies } from './utils'
 
 import { PrismaClient } from '@prisma/client'
 
 import { buildSchema } from 'type-graphql'
-import express from "express";
+import express, { Request } from "express";
 import { ApolloServer } from "apollo-server-express";
 import { createServer } from "http";
 import { PubSub } from 'graphql-subscriptions';
+import { Claims } from "./context/types";
 
 async function bootstrap() {
 
@@ -41,28 +41,28 @@ async function bootstrap() {
       onConnect: async (params, wsocket, wscontext) => {
         console.log("Client connected for subscriptions");
 
-        const claims = await getClaims(parseCookies(wscontext.request))
-        await pubSub.publish("USERONLINE", { id: claims.id, online: true });
+        const claims: Claims | null = await getClaims(parseCookies(<Request>wscontext.request))
+        
+        claims && await pubSub.publish("USERONLINE", { id: claims.id, online: true });
 
         return { claims, prisma }
 
       },
       onDisconnect: async (wsocket, wscontext) => {
-        const { id } = await getClaims(parseCookies(wscontext.request))
+        const { id } = await getClaims(parseCookies(<Request>wscontext.request)) ?? {}
 
-        await pubSub.publish("USERONLINE", { id, online: false });
+        id && await pubSub.publish("USERONLINE", { id, online: false });
 
         console.log("Client disconnected from subscriptions");
       },
     },
 
     context: async ({ req, res, ...rest }: any) => ({
-      req: { ...res, claims: await getClaims(req) },
+      req,
       res,
       prisma,
       ...rest
     }),
-    // middlewares,
   });
 
   server.applyMiddleware({ app })
@@ -73,11 +73,6 @@ async function bootstrap() {
     parseInt(process.env.SERVER_PORT || ''),
     () => console.log("server started on ", process.env.SERVER_PORT)
   )
-  // Start the server
-  // server.start(
-  //     { port: process.env.SERVER_PORT },
-  //     () => console.log("server started on ", process.env.SERVER_PORT)
-  // )
 }
 
 bootstrap();
