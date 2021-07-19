@@ -1,7 +1,23 @@
 import { validateToken, getUserProfile } from './auth'
+import * as R from 'rambda'
+
+export const parseCookies = (request: any) => {
+    const list = {}, rc = request.headers.cookie;
+
+    rc && rc.split(';').forEach(function( cookie: any ) {
+        const parts = cookie.split('=');
+        //@ts-ignore
+        list[parts.shift().trim()] = decodeURI(parts.join('='));
+    });
+
+    return R.set(R.lensProp('cookies'), list, request);
+}
 
 export async function getClaims(req: any) {
 
+    if(!req) {
+        return null;
+    }
     const { cookies: { accessToken, idToken } } = req
 
     const validAccessToken = await validateToken({ accessToken }, process.env.GOOGLE_CLIENT_ID || '')

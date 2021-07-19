@@ -1,6 +1,6 @@
 generator client {
   provider = "prisma-client-js"
-  previewFeatures = ["nApi", "referentialActions"]
+  previewFeatures = ["referentialActions"]
 }
 
 datasource db {
@@ -8,18 +8,20 @@ datasource db {
   url      = env("POSTGRES_URL")
 }
 
-model User {
+model user {
   id    String  @id
   email String  @unique
   name  String?
-  position UserPosition?
+  image String?
+  online Boolean @default(false)
+  position userposition?
 }
 
-model UserPosition {
+model userposition {
   id      String     @id @default(uuid())
-  updatedAt  DateTime    @updatedAt
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId  String
+  user user?  @relation(fields: [userid], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  userid String @unique
+  updatedat  DateTime    @updatedAt
   latitude Float
-  longtitude Float
+  longitude Float
 }

@@ -1,45 +1,83 @@
 import "reflect-metadata";
 
-import { GraphQLServer } from 'graphql-yoga'
-
 import cookieParser from 'cookie-parser'
 require('dotenv').config()
 
 import { resolvers } from './resolvers'
 import { middlewares } from './middlewares'
-import { getClaims } from './utils'
+import { getClaims, parseCookies } from './utils'
 
 import { PrismaClient } from '@prisma/client'
 
 import { buildSchema } from 'type-graphql'
+import express from "express";
+import { ApolloServer } from "apollo-server-express";
+import { createServer } from "http";
+import { PubSub } from 'graphql-subscriptions';
 
 async function bootstrap() {
 
-    const prisma = new PrismaClient()
+  const app = express()
 
-    const schema = await buildSchema({
-        resolvers,
-    });
+  app.use(cookieParser())
 
-    const server = new GraphQLServer({
-        //@ts-ignore
-        schema,
-        context: async ({ request, response, ...rest }: any) => ({
-            request: { ...request, claims: await getClaims(request) },
-            response,
-            prisma,
-            ...rest
-        }),
-        middlewares,
-    });
+  const httpServer = createServer(app);
 
-    server.express.use(cookieParser())
+  const pubSub = new PubSub();
 
-    // Start the server
-    server.start(
-        { port: process.env.SERVER_PORT },
-        () => console.log("server started on ", process.env.SERVER_PORT)
-    )
+  const prisma = new PrismaClient()
+
+  const schema = await buildSchema({
+    resolvers,
+    pubSub
+  });
+
+
+  const server = new ApolloServer({
+    schema,
+    //@ts-ignore
+    subscriptions: {
+      path: "/",
+      onConnect: async (params, wsocket, wscontext) => {
+        console.log("Client connected for subscriptions");
+
+        const claims = await getClaims(parseCookies(wscontext.request))
+        await pubSub.publish("USERONLINE", { id: claims.id, online: true });
+
+        return { claims, prisma }
+
+      },
+      onDisconnect: async (wsocket, wscontext) => {
+        const { id } = await getClaims(parseCookies(wscontext.request))
+
+        await pubSub.publish("USERONLINE", { id, online: false });
+
+        console.log("Client disconnected from subscriptions");
+      },
+    },
+
+    context: async ({ req, res, ...rest }: any) => ({
+      req: { ...res, claims: await getClaims(req) },
+      res,
+      prisma,
+      ...rest
+    }),
+    // middlewares,
+  });
+
+  server.applyMiddleware({ app })
+
+  server.installSubscriptionHandlers(httpServer);
+
+  httpServer.listen(
+    parseInt(process.env.SERVER_PORT || ''),
+    () => console.log("server started on ", process.env.SERVER_PORT)
+  )
+  // Start the server
+  // server.start(
+  //     { port: process.env.SERVER_PORT },
+  //     () => console.log("server started on ", process.env.SERVER_PORT)
+  // )
 }
 
 bootstrap();

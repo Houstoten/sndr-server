@@ -1,27 +1,8 @@
 import { Arg, Field, Mutation, Resolver, ObjectType, Query, InputType, Ctx } from 'type-graphql';
-import { authenticateGoogle, refreshTokens } from '../utils/auth'
 import { Context } from "vm";
 
-import { setCookies } from '../utils'
-
-@ObjectType()
-class UserAuth {
-
-    constructor(name: string, email: string, image: string) {
-        this.name = name
-        this.email = email
-        this.image = image
-    }
-
-    @Field()
-    name!: string
-
-    @Field()
-    email!: string
-
-    @Field()
-    image!: string
-}
+import { setCookies } from '../../utils'
+import { authenticateGoogle, refreshTokens } from '../../utils/auth'
 
 @ObjectType()
 class AuthResponse {
@@ -46,25 +27,17 @@ export class AuthResolver {
 
     @Query(returns => String)
     hello(@Ctx() ctx: Context): string {
-        const { request } = ctx;
 
         return 'world'
-    }
-
-    @Query(returns => UserAuth)
-    getUserData(@Ctx() ctx: Context) {
-        const { request: { claims: { name, email, picture: image } } } = ctx
-
-        return new UserAuth(name, email, image)
     }
 
     @Mutation(returns => AuthResponse)
     async refreshTokens(
         @Ctx() ctx: Context
     ): Promise<AuthResponse | Error> {
-        const { request: { cookies: { accessToken, idToken, refreshToken } }, response } = ctx
+        const { req: { cookies: { accessToken, idToken, refreshToken } }, res } = ctx
 
-        await refreshTokens({ accessToken, idToken, refreshToken }).then(setCookies(response)).catch(err => { throw err })
+        await refreshTokens({ accessToken, idToken, refreshToken }).then(setCookies(res)).catch(err => { throw err })
 
         return new AuthResponse(true)
     }
@@ -73,11 +46,11 @@ export class AuthResolver {
     async signOut(
         @Ctx() ctx: Context
     ): Promise<AuthResponse | Error> {
-        const { response } = ctx
+        const { res } = ctx
 
-        response.clearCookie('accessToken')
-        response.clearCookie('refreshToken')
-        response.clearCookie('idToken')
+        res.clearCookie('accessToken')
+        res.clearCookie('refreshToken')
+        res.clearCookie('idToken')
 
         return new AuthResponse(true)
     }
@@ -88,25 +61,25 @@ export class AuthResolver {
         @Ctx() ctx: Context
     ): Promise<AuthResponse | Error> {
 
-        const { request, response } = ctx
+        const { req, res } = ctx
 
         const { code } = authArgs;
-        request.body = {
-            ...request.body,
+        req.body = {
+            ...req.body,
             code,
         };
 
         try {
             // data contains the accessToken, refreshToken and profile from passport
             //@ts-ignore
-            const { data, info } = await authenticateGoogle(request, response);
+            const { data, info } = await authenticateGoogle(req, res);
 
             // console.log(data);
 
             if (data) {
                 const { accessToken, refreshToken, idToken } = data;
 
-                setCookies(response)({
+                setCookies(res)({
                     credentials: {
                         access_token: accessToken,
                         refresh_token: refreshToken,
@@ -134,4 +107,3 @@ export class AuthResolver {
         }
     }
 }
-

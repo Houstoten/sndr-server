@@ -5,6 +5,9 @@ import { shield } from 'graphql-shield'
 export const permissions = shield({
     Query: {
         hello: isAuthenticated,
-        getUserData: isAuthenticated
+        getUserData: isAuthenticated,
+    },
+    Mutation: {
+        setCurrentPosition: isAuthenticated
     }
 });
