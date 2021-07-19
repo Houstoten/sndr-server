@@ -124,8 +124,6 @@ export class UserResolver {
         
         const id = R.pathOr(null, ['connection', 'context', 'claims', 'id'], ctx)
 
-        console.log('update user online!!!', userOnlineRequest, id);
-
         const prisma: any = R.path(['connection', 'context', 'prisma'], ctx)
 
         const user = await prisma.user.update({

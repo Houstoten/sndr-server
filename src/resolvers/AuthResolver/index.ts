@@ -1,4 +1,4 @@
-import { Arg, Field, Mutation, Resolver, ObjectType, Query, InputType, Ctx } from 'type-graphql';
+import { Arg, Field, Mutation, Resolver, ObjectType, Query, InputType, Ctx, PubSub, PubSubEngine } from 'type-graphql';
 import { Context } from "vm";
 
 import { setCookies } from '../../utils'
@@ -44,10 +44,13 @@ export class AuthResolver {
 
     @Mutation(returns => AuthResponse)
     async signOut(
-        @Ctx() ctx: Context
+        @Ctx() ctx: Context,
+        @PubSub() pubSub: PubSubEngine
     ): Promise<AuthResponse | Error> {
-        const { res } = ctx
+        const { req: { claims: { id } }, res } = ctx
 
+        await pubSub.publish("USERONLINE", { id, online: false });
+        
         res.clearCookie('accessToken')
         res.clearCookie('refreshToken')
         res.clearCookie('idToken')
