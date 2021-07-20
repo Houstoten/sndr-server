@@ -4,6 +4,7 @@ import { isAuthenticated } from '../../middlewares/isAuthenticated';
 
 import { setCookies } from '../../utils'
 import { authenticateGoogle, refreshTokens } from '../../utils/auth'
+import { USER_ONLINE } from '../SubscriptionTypes';
 
 @ObjectType()
 class AuthResponse {
@@ -51,7 +52,7 @@ export class AuthResolver {
     ): Promise<AuthResponse | Error> {
         const { req: { claims: { id } }, res } = ctx
 
-        await pubSub.publish("USERONLINE", { id, online: false });
+        await pubSub.publish(USER_ONLINE, { id, online: false });
 
         res.clearCookie('accessToken')
         res.clearCookie('refreshToken')

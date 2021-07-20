@@ -14,6 +14,7 @@ import { ApolloServer } from "apollo-server-express";
 import { createServer } from "http";
 import { PubSub } from 'graphql-subscriptions';
 import { Claims } from "./context/types";
+import { USER_ONLINE } from "./resolvers/SubscriptionTypes";
 
 async function bootstrap() {
 
@@ -43,7 +44,7 @@ async function bootstrap() {
 
         const claims: Claims | null = await getClaims(parseCookies(<Request>wscontext.request))
         
-        claims && await pubSub.publish("USERONLINE", { id: claims.id, online: true });
+        claims && await pubSub.publish(USER_ONLINE, { id: claims.id, online: true });
 
         return { claims, prisma }
 
@@ -51,7 +52,7 @@ async function bootstrap() {
       onDisconnect: async (wsocket, wscontext) => {
         const { id } = await getClaims(parseCookies(<Request>wscontext.request)) ?? {}
 
-        id && await pubSub.publish("USERONLINE", { id, online: false });
+        id && await pubSub.publish(USER_ONLINE, { id, online: false });
 
         console.log("Client disconnected from subscriptions");
       },

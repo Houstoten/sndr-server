@@ -1,10 +1,9 @@
 import { Resolver, Query, Ctx, InputType, Field, Float, Arg, Mutation, PubSub, PubSubEngine, UseMiddleware } from 'type-graphql';
 
 import { CustomContext } from '../../context/types';
+import { Userposition } from '../../generated/type-graphql';
 import { isAuthenticated } from '../../middlewares/isAuthenticated';
-
-import { UserPosition } from './UserPosition'
-
+import { LOCATION_UPDATE } from '../SubscriptionTypes';
 @InputType()
 class PositionArgs {
 
@@ -15,34 +14,34 @@ class PositionArgs {
     longitude!: number
 }
 
-@Resolver(UserPosition)
+@Resolver(Userposition)
 export class UserPositionResolver {
-    
+
     @UseMiddleware(isAuthenticated)
-    @Mutation(returns => UserPosition)
+    @Mutation(returns => Userposition)
     async setCurrentPosition(
         @Arg("input") position: PositionArgs,
-        @Ctx() ctx: CustomContext, 
+        @Ctx() ctx: CustomContext,
         @PubSub() pubSub: PubSubEngine
-    ): Promise<UserPosition> {
+    ): Promise<Userposition> {
         const { req: { claims: { id } }, prisma } = ctx
-        
-        const userPositionResponse = prisma.userposition.upsert({
+
+        const userPositionResponse = await prisma.userposition.upsert({
             where: {
                 userid: id
             },
             update: {
-               ...position
+                ...position
             },
             create: {
-                user: {connect: {id}},
+                user: { connect: { id } },
                 ...position
             }
         })
 
-        const payload = {userid: id, ...userPositionResponse}
-        
-        await pubSub.publish("LOCATIONUPDATE", payload);
+        const payload = { ...userPositionResponse, userid: id, }
+
+        await pubSub.publish(LOCATION_UPDATE, payload);
 
         return userPositionResponse;
     }

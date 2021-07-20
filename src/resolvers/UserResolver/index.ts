@@ -2,9 +2,10 @@ import { Resolver, Query, Ctx, Field, ObjectType, Float, Subscription, Root, Pub
 
 import * as R from 'rambda'
 
-import { User } from './User'
 import { CustomContext } from '../../context/types';
 import { isAuthenticated } from '../../middlewares/isAuthenticated';
+import { User } from '../../generated/type-graphql';
+import { LOCATION_UPDATE, USER_ONLINE } from '../SubscriptionTypes';
 
 @ObjectType()
 class UserResponse extends User {
@@ -50,7 +51,7 @@ export class UserResolver {
 
         const { req: { claims: { id, name, email, picture: image } }, prisma } = ctx
 
-        await pubSub.publish("USERONLINE", { id, online: true });
+        await pubSub.publish(USER_ONLINE, { id, online: true });
 
         return prisma.user.upsert({
             where: {
@@ -80,7 +81,7 @@ export class UserResolver {
     }
 
     @Subscription(() => UserUpdateResponse, {
-        topics: "LOCATIONUPDATE",
+        topics: LOCATION_UPDATE,
         filter: ({ payload, args, context: {connection} }: any) => {
 
             const { id: userid } = connection.context.claims
@@ -112,7 +113,7 @@ export class UserResolver {
     }
 
     @Subscription(() => UserOnlineResponse, {
-        topics: "USERONLINE",
+        topics: USER_ONLINE,
         filter: ({ payload, args, context: {connection} }: any) => {
 
             const { id: userid } = connection.context.claims

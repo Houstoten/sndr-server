@@ -1,6 +1,11 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   previewFeatures = ["referentialActions"]
+}
+
+generator typegraphql {
+  provider = "typegraphql-prisma"
+  output   = "../src/generated/type-graphql"
 }
 
 datasource db {
@@ -9,19 +14,33 @@ datasource db {
 }
 
 model user {
-  id    String  @id
-  email String  @unique
-  name  String?
-  image String?
-  online Boolean @default(false)
-  position userposition?
+  id                       String        @id
+  email                    String        @unique
+  name                     String?
+  image                    String?
+  online                   Boolean       @default(false)
+  position                 userposition?
+  filerequests_as_sender   filerequest[] @relation(name: "filerequests_as_sender")
+  filerequests_as_receiver filerequest[] @relation(name: "filerequests_as_receiver")
 }
 
 model userposition {
-  id      String     @id @default(uuid())
-  user user?  @relation(fields: [userid], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  userid String @unique
-  updatedat  DateTime    @updatedAt
-  latitude Float
+  id        String   @id @default(uuid())
+  user      user?    @relation(fields: [userid], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  userid    String   @unique
+  updatedat DateTime @updatedAt
+  latitude  Float
   longitude Float
+}
+
+model filerequest {
+  id         String   @id @default(uuid())
+  sender     user?    @relation(name: "filerequests_as_sender", fields: [senderid], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  senderid   String
+  receiver   user?    @relation(name: "filerequests_as_receiver", fields: [receiverid], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  receiverid String
+  updatedat  DateTime @updatedAt
+  name       String
+  size       Int
+  accepted   Boolean?
 }
