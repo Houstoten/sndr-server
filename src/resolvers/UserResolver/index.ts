@@ -9,9 +9,6 @@ import { isAuthenticated } from '../../middlewares/isAuthenticated';
 @ObjectType()
 class UserResponse extends User {
 
-    @Field()
-    id!: string
-
     @Field((type) => Float, { nullable: true })
     distance?: Number
 }

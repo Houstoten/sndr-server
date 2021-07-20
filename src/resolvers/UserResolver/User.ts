@@ -5,6 +5,9 @@ import { UserPosition } from '../UserPositionResolver/UserPosition';
 export class User {
 
     @Field()
+    id!: string
+
+    @Field()
     name!: string
 
     @Field()
