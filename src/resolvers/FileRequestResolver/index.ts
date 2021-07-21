@@ -1,29 +1,29 @@
-import { Arg, Ctx, Field, Mutation, ObjectType, PubSub, PubSubEngine, Query, Resolver, Root, Subscription, UseMiddleware } from "type-graphql";
+import { Arg, Ctx, Field, InputType, Int, Mutation, PubSub, PubSubEngine, Query, Resolver, Root, Subscription, UseMiddleware } from "type-graphql";
 import { CustomContext } from "../../context/types";
 import { Filerequest } from "../../generated/type-graphql";
 import { isAuthenticated } from "../../middlewares/isAuthenticated";
 import { FILE_REQUEST_ANSWER, FILE_REQUEST_QUERY } from "../SubscriptionTypes";
 
-@ObjectType()
+@InputType()
 class FileRequestArgs {
 
-    @Field()
-    receiverId!: string
+    @Field((type) => String)
+    receiverid!: string
 
-    @Field()
+    @Field((type) => String)
     name!: string
 
-    @Field()
+    @Field((type) => Int)
     size!: number
 }
 
-@ObjectType()
+@InputType()
 class FileResponseArgs {
 
-    @Field()
+    @Field((type) => String)
     id!: string
 
-    @Field()
+    @Field((type) => Boolean)
     accepted!: boolean
 }
 
@@ -49,12 +49,12 @@ export class FileRequestResolver {
     ): Promise<Filerequest> {
         const { req: { claims: { id } }, prisma } = ctx
 
-        const { receiverId, name, size } = fileRequestArgs
+        const { receiverid, name, size } = fileRequestArgs
 
         const fileRequest = await prisma.filerequest.create({
             data: {
                 senderid: id,
-                receiverid: receiverId,
+                receiverid,
                 name,
                 size
             }
@@ -68,13 +68,13 @@ export class FileRequestResolver {
     @UseMiddleware(isAuthenticated)
     @Mutation(returns => Filerequest)
     async responseFileAccept(
-        @Arg("input") FileResponseArgs: FileResponseArgs,
+        @Arg("input") fileResponseArgs: FileResponseArgs,
         @Ctx() ctx: CustomContext,
         @PubSub() pubSub: PubSubEngine
     ): Promise<Filerequest> {
         const { prisma } = ctx
 
-        const { id: requestId, accepted } = FileResponseArgs
+        const { id: requestId, accepted } = fileResponseArgs
 
         const fileRequest = await prisma.filerequest.update({
             where: {
