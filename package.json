@@ -40,6 +40,7 @@
     "passport-google-oauth": "^2.0.0",
     "passport-google-strategy": "^1.0.3",
     "passport-google-token": "^0.1.2",
+    "peer": "^0.6.1",
     "prisma": "^2.26.0",
     "rambda": "^6.7.0",
     "reflect-metadata": "^0.1.13",
