@@ -1,3 +1,4 @@
+import { AuthenticationError } from 'apollo-server-express';
 import { Arg, Field, Mutation, Resolver, ObjectType, Query, InputType, Ctx, PubSub, PubSubEngine, UseMiddleware } from 'type-graphql';
 import { CustomContext } from '../../context/types';
 import { isAuthenticated } from '../../middlewares/isAuthenticated';
@@ -38,6 +39,10 @@ export class AuthResolver {
         @Ctx() ctx: CustomContext
     ): Promise<AuthResponse | Error> {
         const { req: { cookies: { accessToken, idToken, refreshToken } }, res } = ctx
+
+        if(!refreshToken) {
+            throw new AuthenticationError('Invalid refresh token')
+        }
 
         await refreshTokens({ accessToken, idToken, refreshToken }).then(setCookies(res)).catch(err => { throw err })
 

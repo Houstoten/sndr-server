@@ -1,8 +1,9 @@
-import { Arg, Ctx, Field, InputType, Int, Mutation, PubSub, PubSubEngine, Query, Resolver, Root, Subscription, UseMiddleware } from "type-graphql";
+import { Arg, Ctx, Field, InputType, Int, Mutation, ObjectType, PubSub, PubSubEngine, Query, Resolver, Root, Subscription, UseMiddleware } from "type-graphql";
 import { CustomContext } from "../../context/types";
-import { Filerequest } from "../../generated/type-graphql";
+import { Filerequest, User } from "../../generated/type-graphql";
 import { isAuthenticated } from "../../middlewares/isAuthenticated";
 import { FILE_REQUEST_ANSWER, FILE_REQUEST_QUERY } from "../SubscriptionTypes";
+import { UserByIdArgs } from "../UserResolver";
 
 @InputType()
 class FileRequestArgs {
@@ -15,6 +16,13 @@ class FileRequestArgs {
 
     @Field((type) => Int)
     size!: number
+}
+
+@ObjectType()
+class FileRequestWithSender extends Filerequest {
+
+    @Field(_type => User, {nullable: true})
+    sender!: User | null
 }
 
 @InputType()
@@ -60,7 +68,11 @@ export class FileRequestResolver {
             }
         })
 
-        pubSub.publish(FILE_REQUEST_QUERY, fileRequest)
+        const sender: User | null = await prisma.filerequest.findUnique({ where: { id: fileRequest.id } }).sender()
+
+        const fileRequestWithSender: FileRequestWithSender = { ...fileRequest, sender };
+
+        pubSub.publish(FILE_REQUEST_QUERY, fileRequestWithSender)
 
         return fileRequest
     }
@@ -91,7 +103,7 @@ export class FileRequestResolver {
         return fileRequest
     }
 
-    @Subscription(() => Filerequest, {
+    @Subscription(() => FileRequestWithSender, {
         topics: FILE_REQUEST_QUERY,
         filter: ({ payload, args, context: { connection } }: { payload: Filerequest, args: any, context: any }) => {
 
@@ -104,8 +116,8 @@ export class FileRequestResolver {
     }
     )
     subscribeToFileRequest(
-        @Root() filerequest: Filerequest,
-    ): Filerequest {
+        @Root() filerequest: FileRequestWithSender,
+    ): FileRequestWithSender {
         return filerequest
     }
 
@@ -126,5 +138,31 @@ export class FileRequestResolver {
         @Root() fileResponse: Filerequest,
     ): Filerequest {
         return fileResponse
+    }
+
+    @UseMiddleware(isAuthenticated)
+    @Query(returns => [Filerequest])
+    async getRecentFileRequests(
+        @Ctx() ctx: CustomContext,
+        @Arg("input") userArgs: UserByIdArgs,
+    ): Promise<Filerequest[]> {
+        const { req: { claims: { id } }, prisma } = ctx
+
+        const { id: userid } = userArgs
+
+        return await prisma.filerequest.findMany({
+            where: {
+                OR: [
+                    {
+                        senderid: id,
+                        receiverid: userid
+                    },
+                    {
+                        senderid: userid,
+                        receiverid: id
+                    }
+                ]
+            }
+        })
     }
 }

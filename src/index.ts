@@ -40,18 +40,20 @@ async function bootstrap() {
     subscriptions: {
       path: "/",
       onConnect: async (params, wsocket, wscontext) => {
-        console.log("Client connected for subscriptions");
+        console.log(`Client connected for subscriptions`);
 
         const claims: Claims | null = await getClaims(parseCookies(<Request>wscontext.request))
-        
+
         claims && await pubSub.publish(USER_ONLINE, { id: claims.id, online: true });
 
         return { claims, prisma }
 
       },
       onDisconnect: async (wsocket, wscontext) => {
-        const { id } = await getClaims(parseCookies(<Request>wscontext.request)) ?? {}
+        const { claims } = await wscontext.initPromise;
 
+        const { id } = claims ?? {}
+        
         id && await pubSub.publish(USER_ONLINE, { id, online: false });
 
         console.log("Client disconnected from subscriptions");

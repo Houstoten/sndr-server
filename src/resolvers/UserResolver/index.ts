@@ -1,4 +1,4 @@
-import { Resolver, Query, Ctx, Field, ObjectType, Float, Subscription, Root, PubSubEngine, UseMiddleware, PubSub } from 'type-graphql';
+import { Resolver, Query, Ctx, Field, ObjectType, Float, Subscription, Root, PubSubEngine, UseMiddleware, PubSub, InputType, Arg } from 'type-graphql';
 
 import * as R from 'rambda'
 
@@ -7,6 +7,18 @@ import { isAuthenticated } from '../../middlewares/isAuthenticated';
 import { User } from '../../generated/type-graphql';
 import { LOCATION_UPDATE, USER_ONLINE } from '../SubscriptionTypes';
 
+const toRadians = (v: number) => v * Math.PI / 180
+
+const distanceCalculator = (lat1: number, long1: number, lat2: number, long2: number): number => {
+    return 6371 * 2 * Math.asin(
+        Math.sqrt(
+            Math.pow(Math.sin((toRadians(lat1) - toRadians(lat2)) / 2), 2) +
+            Math.cos(toRadians(lat1)) *
+            Math.cos(toRadians(lat2)) *
+            Math.pow(Math.sin((toRadians(long1) - toRadians(long2)) / 2), 2)
+        )
+    )
+}
 @ObjectType()
 class UserResponse extends User {
 
@@ -40,6 +52,12 @@ class UserOnlineResponse extends UserResponse {
     online!: boolean
 }
 
+@InputType()
+export class UserByIdArgs {
+
+    @Field()
+    id!: string
+}
 @Resolver(User)
 export class UserResolver {
     @UseMiddleware(isAuthenticated)
@@ -58,12 +76,47 @@ export class UserResolver {
                 id
             },
             update: {
-                id, name, email, image
+                id, name, email, image, online: true
             },
             create: {
-                id, name, email, image
+                id, name, email, image, online: true
             }
         })
+    }
+
+    @UseMiddleware(isAuthenticated)
+    @Query(returns => User)
+    async getUserById(
+        @Ctx() ctx: CustomContext,
+        @Arg("input") userArgs: UserByIdArgs,
+    ): Promise<User | null> {
+        const { prisma } = ctx
+
+        const { id } = userArgs
+        return await prisma.user.findUnique({
+            where: {
+                id
+            }
+        })
+    }
+
+    @UseMiddleware(isAuthenticated)
+    @Query(returns => [User])
+    async getRecentUsersRelations(
+        @Ctx() ctx: CustomContext,
+    ): Promise<User[]> {
+        const { req: { claims: { id } }, prisma } = ctx
+
+        //@ts-ignore
+        return (await prisma.filerequest.findMany({
+            where: {
+                senderid: id
+            },
+            include: {
+                receiver: true
+            },
+            distinct: ['receiverid']
+        })).map(R.prop('receiver'))
     }
 
     @UseMiddleware(isAuthenticated)
@@ -77,12 +130,13 @@ export class UserResolver {
             }
         }) ?? {}
 
-        return prisma.$queryRaw`SELECT u.name, u.email, u.image, u.id, SQRT(POWER(ABS(up.latitude - ${latitude}), 2) + POWER(ABS(up.longitude - ${longitude}), 2)) as distance FROM "userposition" up join "user" u on up.userid=u.id and up.userid!=${id} and u.online=true order by distance;`
+        return prisma.$queryRaw`SELECT u.name, u.email, u.image, u.id, 6371 * 2 * ASIN(SQRT(POWER(SIN((radians(up.latitude) - radians(${latitude})) / 2), 2) + COS(radians(${latitude}))* cos(radians(up.latitude)) * POWER(SIN((radians(up.longitude) - radians(${longitude})) / 2), 2))) as distance FROM "userposition" up join "user" u on up.userid=u.id and up.userid!=${id} and u.online=true order by distance;`
     }
+
 
     @Subscription(() => UserUpdateResponse, {
         topics: LOCATION_UPDATE,
-        filter: ({ payload, args, context: {connection} }: any) => {
+        filter: ({ payload, args, context: { connection } }: any) => {
 
             const { id: userid } = connection.context.claims
 
@@ -107,14 +161,14 @@ export class UserResolver {
             }
         })
 
-        const distance = Math.sqrt(Math.pow(Math.abs(latitude - _latitude), 2) + Math.pow(Math.abs(longitude - _longitude), 2))
+        const distance = distanceCalculator(_latitude, _longitude, latitude, longitude)
 
         return { id: userid, distance };
     }
 
     @Subscription(() => UserOnlineResponse, {
         topics: USER_ONLINE,
-        filter: ({ payload, args, context: {connection} }: any) => {
+        filter: ({ payload, args, context: { connection } }: any) => {
 
             const { id: userid } = connection.context.claims
 
@@ -158,7 +212,7 @@ export class UserResolver {
             }
         })
 
-        const distance = Math.sqrt(Math.pow(Math.abs(latitude - _latitude), 2) + Math.pow(Math.abs(longitude - _longitude), 2))
+        const distance = distanceCalculator(_latitude, _longitude, latitude, longitude)
 
         return { ...user, online: true, distance }
 
