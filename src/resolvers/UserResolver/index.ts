@@ -58,6 +58,14 @@ export class UserByIdArgs {
     @Field()
     id!: string
 }
+
+@InputType()
+class TrackedUsersArgs {
+
+    @Field(type => [String])
+    ids!: string[]
+}
+
 @Resolver(User)
 export class UserResolver {
     @UseMiddleware(isAuthenticated)
@@ -138,16 +146,19 @@ export class UserResolver {
         topics: LOCATION_UPDATE,
         filter: ({ payload, args, context: { connection } }: any) => {
 
+            const { input } = args
+
             const { id: userid } = connection.context.claims
 
             const { id } = payload
 
-            return userid !== id
+            return userid !== id && R.find(R.equals(id), input.ids)
         },
     }
     )
     async updateNearestData(
         @Ctx() ctx: CustomContext,
+        @Arg("input") trackedUsers: TrackedUsersArgs,
         @Root() newUserLocation: any,
     ): Promise<UserUpdateResponse> {
         const id = R.pathOr(null, ['connection', 'context', 'claims', 'id'], ctx)

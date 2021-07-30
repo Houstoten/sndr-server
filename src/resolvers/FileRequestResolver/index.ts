@@ -65,14 +65,13 @@ export class FileRequestResolver {
                 receiverid,
                 name,
                 size
+            },
+            include: {
+                sender: true
             }
         })
 
-        const sender: User | null = await prisma.filerequest.findUnique({ where: { id: fileRequest.id } }).sender()
-
-        const fileRequestWithSender: FileRequestWithSender = { ...fileRequest, sender };
-
-        pubSub.publish(FILE_REQUEST_QUERY, fileRequestWithSender)
+        pubSub.publish(FILE_REQUEST_QUERY, fileRequest)
 
         return fileRequest
     }
