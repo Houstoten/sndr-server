@@ -23,7 +23,7 @@ async function bootstrap() {
   app.use(cookieParser())
 
   const httpServer = createServer(app);
-
+  
   const pubSub = new PubSub();
 
   const prisma = new PrismaClient()
