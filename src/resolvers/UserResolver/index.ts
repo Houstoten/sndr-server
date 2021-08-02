@@ -66,6 +66,13 @@ class TrackedUsersArgs {
     ids!: string[]
 }
 
+@InputType()
+class NameEmailSearchArgs {
+
+    @Field(type => String)
+    search!: string
+}
+
 @Resolver(User)
 export class UserResolver {
     @UseMiddleware(isAuthenticated)
@@ -104,6 +111,37 @@ export class UserResolver {
         return await prisma.user.findUnique({
             where: {
                 id
+            }
+        })
+    }
+
+    @UseMiddleware(isAuthenticated)
+    @Query(returns => [User])
+    async findUserByNameOrEmail(
+        @Ctx() ctx: CustomContext,
+        @Arg("input") searchArgs: NameEmailSearchArgs,
+    ): Promise<User[] | null> {
+        const { prisma, req: { claims: { id } } } = ctx
+
+        const { search } = searchArgs
+
+        return await prisma.user.findMany({
+            where: {
+                OR: [{
+                    email: {
+                        contains: search,
+                        mode: 'insensitive'
+                    }
+                },
+                {
+                    name: {
+                        contains: search,
+                        mode: 'insensitive'
+                    }
+                }],
+                NOT: {
+                    id
+                }
             }
         })
     }
