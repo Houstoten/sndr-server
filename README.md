@@ -1,4 +1,4 @@
-# SENDer-client 🖥️
+# SENDer-server ⚙️
 
 # Share files seamlessly with people around you using webrtc connection!
 
