@@ -17,5 +17,7 @@ Available on [sndr.club](https://sndr.club)
 
 - go to `./sndr-server`
 - create your own `.env` file from `.env.example`
+- run `yarn install`
+- run `prisma generate` and `prisma migrate`
 - connect your own or start predefined `peerjs-server` and `postgres` with `docker-compose up`
 - to start the server run `yarn start`
